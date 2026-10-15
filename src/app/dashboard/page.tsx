@@ -63,6 +63,24 @@ export default function SmmDashboard() {
       p.category.toLowerCase() === selectedPlatform.toLowerCase()
   );
 
+  // ✅ Sync selected service with active platform filter
+  // When the user clicks a new platform, if the currently-selected
+  // service isn't in the new filtered list, auto-select the first one.
+  useEffect(() => {
+    if (products.length === 0) return;
+
+    const stillVisible =
+      selectedService &&
+      filteredServices.some((p) => p.id === selectedService.id);
+
+    if (!stillVisible) {
+      const first = filteredServices[0] || null;
+      setSelectedService(first);
+      setQuantity(first?.minOrder || 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlatform, products.length]);
+
   const currentPlatformObj = platforms.find(
     (p) => p.name === selectedService?.category
   );
@@ -426,7 +444,7 @@ export default function SmmDashboard() {
                 </div>
               </div>
 
-              {/* Payment Instructions — separate block */}
+              {/* Payment Instructions */}
               <div className="relative rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/80 via-white to-amber-50/40 p-5 overflow-hidden">
                 <div className="pointer-events-none absolute -top-16 -right-16 w-40 h-40 bg-amber-200/40 blur-3xl rounded-full" />
                 <div className="relative">

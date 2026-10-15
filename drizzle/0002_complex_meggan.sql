@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "service_type" text NOT NULL;

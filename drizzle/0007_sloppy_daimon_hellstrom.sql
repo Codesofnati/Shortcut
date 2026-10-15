@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "pricing_type" text DEFAULT 'quantity' NOT NULL;

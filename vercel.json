@@ -1,0 +1,10 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://refecnylqqzjtktbyteo.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlZmVjbnlscXF6anRrdGJ5dGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzMDk0MTgsImV4cCI6MjEwNjg4NTQxOH0.KHIMP3zGIrvFJLRMr3GOcH5Ifoy26zRsTeOltFxcGTc"
+  }
+}

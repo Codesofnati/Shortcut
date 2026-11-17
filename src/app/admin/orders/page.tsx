@@ -77,6 +77,7 @@ export default async function AdminOrdersPage() {
                 <tr>
                   <th className="p-4">Order ID</th>
                   <th className="p-4">Customer</th>
+                  <th className="p-4">FT Number</th>
                   <th className="p-4">Service Requested</th>
                   <th className="p-4">Target</th>
                   <th className="p-4">Qty</th>
@@ -88,7 +89,7 @@ export default async function AdminOrdersPage() {
               <tbody className="divide-y divide-white/5">
                 {allOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-16 text-center">
+                    <td colSpan={9} className="p-16 text-center">
                       <div className="inline-flex flex-col items-center gap-2">
                         <span className="text-3xl opacity-40">📦</span>
                         <p className="text-sm font-medium text-neutral-400">
@@ -114,6 +115,11 @@ export default async function AdminOrdersPage() {
                       <td className="p-4 font-medium text-white">
                         {order.customerEmail || "Guest"}
                       </td>
+                      <td className="p-4">
+                        <span className="font-mono text-xs font-bold text-emerald-400">
+                          {order.metadata?.paymentReference || "N/A"}
+                        </span>
+                      </td>
                       <td className="p-4 font-semibold text-purple-300">
                         {order.productName || "Unknown Service"}
                       </td>
@@ -135,15 +141,13 @@ export default async function AdminOrdersPage() {
                       </td>
                       <td className="p-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                            statusStyles[order.status] ||
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${statusStyles[order.status] ||
                             "bg-neutral-800 text-neutral-300 border-neutral-700"
-                          }`}
+                            }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              statusDot[order.status] || "bg-neutral-400"
-                            }`}
+                            className={`w-1.5 h-1.5 rounded-full ${statusDot[order.status] || "bg-neutral-400"
+                              }`}
                           />
                           {order.status}
                         </span>

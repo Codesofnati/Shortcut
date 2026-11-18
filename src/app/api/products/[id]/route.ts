@@ -15,7 +15,7 @@ export async function PUT(
       description, 
       price, 
       currency, 
-      category, 
+      categoryId, // <--- CHANGED from 'category'
       serviceType, 
       badge, 
       active, 
@@ -24,11 +24,20 @@ export async function PUT(
       averageTime,
       minOrder,
       maxOrder,
-      deliveryTime
+      deliveryTime,
+      // NEW rich attributes
+      quality,
+      speed,
+      startTime,
+      refill,
+      dropRate,
+      serverInfo,
+      tags
     } = body;
 
-    if (!name || price === undefined || !category) {
-      return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
+    // Validate using categoryId
+    if (!name || price === undefined || !categoryId) {
+      return NextResponse.json({ success: false, message: "Missing required fields (name, price, categoryId)" }, { status: 400 });
     }
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -41,16 +50,25 @@ export async function PUT(
         description,
         price: Number(price),
         currency: currency || "ETB",
-        category,
+        categoryId, // <--- CHANGED to match schema
         serviceType: serviceType || "General",
         badge: badge ? badge : null,
         imageUrl: imageUrl || null,
-        pricingType: pricingType || "quantity", // Handles "flat" vs "quantity"
+        pricingType: pricingType || "quantity", 
         averageTime: averageTime || deliveryTime || "Instant",
         minOrder: pricingType === "flat" ? 1 : (minOrder ? Number(minOrder) : 100),
         maxOrder: pricingType === "flat" ? 1 : (maxOrder ? Number(maxOrder) : 1000000),
         deliveryTime: averageTime || deliveryTime || "24 Hours",
         active: active !== undefined ? active : true,
+        
+        // NEW rich attributes
+        quality: quality || null,
+        speed: speed || null,
+        startTime: startTime || null,
+        refill: refill || null,
+        dropRate: dropRate || null,
+        serverInfo: serverInfo || null,
+        tags: tags || [],
       })
       .where(eq(products.id, id))
       .returning();

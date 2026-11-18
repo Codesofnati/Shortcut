@@ -8,8 +8,9 @@ import LogoutButton from "../admin-login/logout-button";
 const navLinks = [
   { href: "/admin", label: "Overview", icon: "📊" },
   { href: "/admin/orders", label: "Orders Management", icon: "📦" },
-  { href: "/admin/products", label: "Products & Pricing", icon: "🏷️" },
   { href: "/admin/platforms", label: "Platforms", icon: "🧩" },
+  { href: "/admin/categories", label: "Categories", icon: "C" },
+  { href: "/admin/products", label: "Products & Pricing", icon: "🏷️" },
   { href: "/admin/contacts", label: "Contact us", icon: "📞" },
 ];
 

@@ -33,8 +33,32 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (pathname.startsWith("/admin") && !user) {
-    return NextResponse.redirect(new URL("/admin-login", request.url));
+  if (pathname.startsWith("/admin")) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/admin-login", request.url));
+    }
+
+    // --- 5 MINUTE TIMEOUT LOGIC ---
+    const lastActive = request.cookies.get("admin_last_active")?.value;
+    const now = Date.now();
+    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    if (lastActive) {
+      const timePassed = now - parseInt(lastActive, 10);
+      if (timePassed > TIMEOUT_MS) {
+        // Session expired
+        await supabase.auth.signOut();
+        return NextResponse.redirect(new URL("/admin-login?expired=true", request.url));
+      }
+    }
+
+    // Refresh the activity cookie on every navigation/API call
+    response.cookies.set("admin_last_active", now.toString(), {
+      maxAge: 5 * 60, // 5 minutes in seconds
+      path: "/",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    });
   }
 
   return response;

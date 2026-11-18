@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../lib/supabase/server";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import AdminShell from "./admin-shell";
+import AdminTimeoutTracker from "./AdminTimeoutTracker";
 
 export default async function AdminLayout({
   children,
@@ -31,5 +32,11 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  return <AdminShell email={user.email ?? ""}>{children}</AdminShell>;
+  return (
+    <AdminShell email={user.email ?? ""}>
+      {/* The tracker sits silently in the background listening for mouse/keyboard activity */}
+      <AdminTimeoutTracker />
+      {children}
+    </AdminShell>
+  );
 }

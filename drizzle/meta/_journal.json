@@ -64,6 +64,20 @@
       "when": 1791985865555,
       "tag": "0008_demonic_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794987286084,
+      "tag": "0009_overrated_sprite",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794988220726,
+      "tag": "0010_clammy_husk",
+      "breakpoints": true
     }
   ]
 }

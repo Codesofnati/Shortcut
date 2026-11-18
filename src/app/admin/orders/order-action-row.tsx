@@ -37,25 +37,19 @@ export default function OrderActionRow({
   return (
     <select
       value={status}
-      onChange={(e) => updateStatus(e.target.value)}
+      onChange={(e) => {
+        e.stopPropagation(); // Prevents the modal from opening
+        updateStatus(e.target.value);
+      }}
+      onClick={(e) => e.stopPropagation()} // Prevents the modal from opening
       disabled={loading}
       className="bg-white/[0.03] border border-white/10 hover:border-white/20 text-[11px] font-bold uppercase tracking-wider text-white rounded-xl px-3 py-2 focus:outline-none focus:border-purple-400/60 focus:ring-4 focus:ring-purple-500/10 cursor-pointer disabled:opacity-50 transition"
     >
-      <option value="new" className="bg-neutral-900 normal-case">
-        New
-      </option>
-      <option value="processing" className="bg-neutral-900 normal-case">
-        Processing
-      </option>
-      <option value="completed" className="bg-neutral-900 normal-case">
-        Completed
-      </option>
-      <option value="failed" className="bg-neutral-900 normal-case">
-        Failed
-      </option>
-      <option value="refunded" className="bg-neutral-900 normal-case">
-        Refunded
-      </option>
+      <option value="new" className="bg-neutral-900 normal-case">New</option>
+      <option value="processing" className="bg-neutral-900 normal-case">Processing</option>
+      <option value="completed" className="bg-neutral-900 normal-case">Completed</option>
+      <option value="failed" className="bg-neutral-900 normal-case">Failed</option>
+      <option value="refunded" className="bg-neutral-900 normal-case">Refunded</option>
     </select>
   );
 }

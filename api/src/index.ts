@@ -1,62 +1,381 @@
 import { Hono } from "hono";
-import { cors } from 'hono/cors';
+import { cors } from "hono/cors";
+import { eq, desc } from "drizzle-orm";
 
 import { createDb } from "./db";
-import { eq, desc } from "drizzle-orm";
-import { products } from "./db/schema";
-import { orders, customers } from "./db/schema";
+import {
+  products,
+  orders,
+  customers,
+  platforms,
+  serviceCategories,
+} from "./db/schema";
+
 type Bindings = {
   DATABASE_URL: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
-app.use('*', cors({
-  origin: ['https://shortcut.vercel.app', 'http://localhost:3000'], 
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-}));
 
-app.get("/", (c) => {
-  return c.json({
-    success: true,
-    message: "Shortcut API is running 🚀",
-  });
-});
+app.use(
+  "*",
+  cors({
+    origin: ["https://shortcut.vercel.app", "http://localhost:3000"],
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
-app.get("/api/health", (c) => {
-  return c.json({
-    status: "ok",
-  });
-});
+// --------------------------------------------------
+// HEALTH
+// --------------------------------------------------
+app.get("/", (c) =>
+  c.json({ success: true, message: "Shortcut API is running 🚀" })
+);
+app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-app.get("/api/products", async (c) => {
+// --------------------------------------------------
+// PLATFORMS
+// --------------------------------------------------
+app.get("/api/platforms", async (c) => {
   try {
-    // Pass the schema or make sure createDb binds it
     const db = createDb(c.env.DATABASE_URL);
-
-    const result = await db.select().from(products);
-
-    return c.json({
-      success: true,
-      products: result,
-    });
+    const result = await db.select().from(platforms).orderBy(desc(platforms.createdAt));
+    return c.json({ success: true, platforms: result });
   } catch (error) {
     console.error(error);
+    return c.json({ success: false, message: "Failed to fetch platforms" }, 500);
+  }
+});
 
+app.post("/api/platforms", async (c) => {
+  try {
+    const { name, imageUrl } = await c.req.json();
+    if (!name) return c.json({ success: false, message: "Name is required" }, 400);
+
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
+    const db = createDb(c.env.DATABASE_URL);
+
+    const [newPlatform] = await db
+      .insert(platforms)
+      .values({ name, slug, imageUrl })
+      .returning();
+
+    return c.json({ success: true, platform: newPlatform });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to create platform (slug might exist)" }, 500);
+  }
+});
+
+app.put("/api/platforms/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { name, imageUrl } = await c.req.json();
+    const db = createDb(c.env.DATABASE_URL);
+
+    const [updated] = await db
+      .update(platforms)
+      .set({ name, slug: name?.toLowerCase().replace(/[^a-z0-9]+/g, "-"), imageUrl })
+      .where(eq(platforms.id, id))
+      .returning();
+
+    return c.json({ success: true, platform: updated });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to update platform" }, 500);
+  }
+});
+
+app.delete("/api/platforms/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const db = createDb(c.env.DATABASE_URL);
+    await db.delete(platforms).where(eq(platforms.id, id));
+    return c.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to delete platform" }, 500);
+  }
+});
+
+// --------------------------------------------------
+// SERVICE CATEGORIES
+// --------------------------------------------------
+app.get("/api/service-categories", async (c) => {
+  try {
+    const platformId = c.req.query("platformId");
+    const db = createDb(c.env.DATABASE_URL);
+
+    const query = db.select().from(serviceCategories);
+    const result = platformId
+      ? await query.where(eq(serviceCategories.platformId, platformId))
+      : await query;
+
+    return c.json({ success: true, categories: result });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to fetch categories" }, 500);
+  }
+});
+
+app.post("/api/service-categories", async (c) => {
+  try {
+    const { platformId, name } = await c.req.json();
+    if (!platformId || !name)
+      return c.json({ success: false, message: "Missing fields" }, 400);
+
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
+    const db = createDb(c.env.DATABASE_URL);
+
+    const [newCategory] = await db
+      .insert(serviceCategories)
+      .values({ platformId, name, slug })
+      .returning();
+
+    return c.json({ success: true, category: newCategory });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to create category" }, 500);
+  }
+});
+
+app.put("/api/service-categories/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const { name } = await c.req.json();
+    const db = createDb(c.env.DATABASE_URL);
+
+    const [updated] = await db
+      .update(serviceCategories)
+      .set({ name, slug: name?.toLowerCase().replace(/[^a-z0-9]+/g, "-") })
+      .where(eq(serviceCategories.id, id))
+      .returning();
+
+    return c.json({ success: true, category: updated });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to update category" }, 500);
+  }
+});
+
+app.delete("/api/service-categories/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const db = createDb(c.env.DATABASE_URL);
+    await db.delete(serviceCategories).where(eq(serviceCategories.id, id));
+    return c.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to delete category" }, 500);
+  }
+});
+
+// --------------------------------------------------
+// PRODUCTS
+// --------------------------------------------------
+app.get("/api/products", async (c) => {
+  try {
+    const db = createDb(c.env.DATABASE_URL);
+    const result = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        description: products.description,
+        price: products.price,
+        currency: products.currency,
+        badge: products.badge,
+        quality: products.quality,
+        speed: products.speed,
+        startTime: products.startTime,
+        refill: products.refill,
+        dropRate: products.dropRate,
+        serverInfo: products.serverInfo,
+        tags: products.tags,
+        serviceType: products.serviceType,
+        imageUrl: products.imageUrl,
+        pricingType: products.pricingType,
+        minOrder: products.minOrder,
+        maxOrder: products.maxOrder,
+        active: products.active,
+        categoryId: products.categoryId,
+        categoryName: serviceCategories.name,
+        platformName: platforms.name,
+        platformImage: platforms.imageUrl,
+      })
+      .from(products)
+      .leftJoin(serviceCategories, eq(products.categoryId, serviceCategories.id))
+      .leftJoin(platforms, eq(serviceCategories.platformId, platforms.id))
+      .orderBy(desc(products.createdAt));
+
+    return c.json({ success: true, products: result });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to fetch products" }, 500);
+  }
+});
+
+app.post("/api/products", async (c) => {
+  try {
+    const body = await c.req.json();
+    const {
+      categoryId,
+      name,
+      slug,
+      description,
+      price,
+      currency,
+      serviceType,
+      deliveryTime,
+      imageUrl,
+      badge,
+      quality,
+      speed,
+      startTime,
+      refill,
+      dropRate,
+      serverInfo,
+      tags,
+      pricingType,
+      averageTime,
+      minOrder,
+      maxOrder,
+      active,
+    } = body;
+
+    if (!name || !slug || price === undefined || !categoryId) {
+      return c.json(
+        { success: false, message: "Missing required fields (name, slug, price, categoryId)" },
+        400
+      );
+    }
+
+    const db = createDb(c.env.DATABASE_URL);
+
+    const [newProduct] = await db
+      .insert(products)
+      .values({
+        categoryId,
+        name,
+        slug,
+        description: description || null,
+        price: Number(price),
+        currency: currency || "ETB",
+        serviceType: serviceType || "General",
+        deliveryType: "manual",
+        deliveryTime: deliveryTime || "24 Hours",
+        imageUrl: imageUrl || null,
+        badge: badge || null,
+        quality: quality || null,
+        speed: speed || null,
+        startTime: startTime || null,
+        refill: refill || null,
+        dropRate: dropRate || null,
+        serverInfo: serverInfo || null,
+        tags: Array.isArray(tags) ? tags : [],
+        pricingType: pricingType || "quantity",
+        averageTime: averageTime || "15 minutes",
+        minOrder: minOrder !== undefined ? Number(minOrder) : 100,
+        maxOrder: maxOrder !== undefined ? Number(maxOrder) : 1000000,
+        active: active !== undefined ? active : true,
+      })
+      .returning();
+
+    return c.json({ success: true, product: newProduct });
+  } catch (error) {
+    console.error("Failed to create product:", error);
     return c.json(
-      {
-        success: false,
-        message: "Failed to fetch products",
-      },
-      500,
+      { success: false, message: "Internal server error (slug might already exist)" },
+      500
     );
   }
 });
-// POST endpoint to handle checkout and save the order
+
+app.put("/api/products/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json();
+    const db = createDb(c.env.DATABASE_URL);
+
+    const {
+      categoryId,
+      name,
+      description,
+      price,
+      currency,
+      serviceType,
+      imageUrl,
+      badge,
+      quality,
+      speed,
+      startTime,
+      refill,
+      dropRate,
+      serverInfo,
+      tags,
+      pricingType,
+      averageTime,
+      minOrder,
+      maxOrder,
+      active,
+    } = body;
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (categoryId !== undefined) updateData.categoryId = categoryId;
+    if (description !== undefined) updateData.description = description;
+    if (price !== undefined) updateData.price = Number(price);
+    if (currency !== undefined) updateData.currency = currency;
+    if (serviceType !== undefined) updateData.serviceType = serviceType;
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+    if (badge !== undefined) updateData.badge = badge;
+    if (quality !== undefined) updateData.quality = quality;
+    if (speed !== undefined) updateData.speed = speed;
+    if (startTime !== undefined) updateData.startTime = startTime;
+    if (refill !== undefined) updateData.refill = refill;
+    if (dropRate !== undefined) updateData.dropRate = dropRate;
+    if (serverInfo !== undefined) updateData.serverInfo = serverInfo;
+    if (tags !== undefined) updateData.tags = tags;
+    if (pricingType !== undefined) updateData.pricingType = pricingType;
+    if (averageTime !== undefined) updateData.averageTime = averageTime;
+    if (minOrder !== undefined) updateData.minOrder = Number(minOrder);
+    if (maxOrder !== undefined) updateData.maxOrder = Number(maxOrder);
+    if (active !== undefined) updateData.active = active;
+
+    const [updated] = await db
+      .update(products)
+      .set(updateData)
+      .where(eq(products.id, id))
+      .returning();
+
+    if (!updated) return c.json({ success: false, message: "Product not found" }, 404);
+
+    return c.json({ success: true, product: updated });
+  } catch (error) {
+    console.error("Failed to update product:", error);
+    return c.json({ success: false, message: "Internal server error" }, 500);
+  }
+});
+
+app.delete("/api/products/:id", async (c) => {
+  try {
+    const id = c.req.param("id");
+    const db = createDb(c.env.DATABASE_URL);
+    await db.delete(products).where(eq(products.id, id));
+    return c.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return c.json({ success: false, message: "Failed to delete product" }, 500);
+  }
+});
+
+// --------------------------------------------------
+// ORDERS
+// --------------------------------------------------
 app.post("/api/orders", async (c) => {
   try {
-    const body = await c.req.json();
-    const { email, productId, quantity, metadata } = body;
+    const { email, productId, quantity, metadata } = await c.req.json();
 
     if (!email || !productId) {
       return c.json({ success: false, message: "Missing required fields" }, 400);
@@ -64,7 +383,6 @@ app.post("/api/orders", async (c) => {
 
     const db = createDb(c.env.DATABASE_URL);
 
-    // 1. Check if customer exists, otherwise create them
     let [customer] = await db
       .select()
       .from(customers)
@@ -78,7 +396,6 @@ app.post("/api/orders", async (c) => {
       customer = newCustomer;
     }
 
-    // 2. Fetch the product to get its price
     const [product] = await db
       .select()
       .from(products)
@@ -90,7 +407,6 @@ app.post("/api/orders", async (c) => {
 
     const totalAmount = product.price * (quantity || 1);
 
-    // 3. Create the order with 'new' status (matches your admin dashboard)
     const [newOrder] = await db
       .insert(orders)
       .values({
@@ -98,81 +414,32 @@ app.post("/api/orders", async (c) => {
         productId: product.id,
         quantity: quantity || 1,
         totalAmount,
-        status: "new", // Starts as 'new' for your admin dashboard
-        metadata, // Stores the user's target link/requirements
+        status: "new",
+        metadata,
       })
       .returning();
 
-    return c.json({
-      success: true,
-      message: "Order placed successfully!",
-      order: newOrder,
-    });
+    return c.json({ success: true, order: newOrder });
   } catch (error) {
     console.error("Order creation error:", error);
     return c.json({ success: false, message: "Internal server error" }, 500);
   }
 });
-// POST endpoint to create a new product (Admin action)
-app.post("/api/products", async (c) => {
-  try {
-    const body = await c.req.json();
-    const { name, slug, description, price, currency, category, serviceType, deliveryTime } = body;
 
-    if (!name || !slug || price === undefined || !category) {
-      return c.json({ success: false, message: "Missing required product fields" }, 400);
-    }
-
-    const db = createDb(c.env.DATABASE_URL);
-
-    const [newProduct] = await db
-      .insert(products)
-      .values({
-        name,
-        slug,
-        description,
-        price: Number(price), // Stored in smallest unit (e.g. cents/santims)
-        currency: currency || "ETB",
-        category,
-        serviceType: serviceType || "General",
-        deliveryType: "manual", // Default for your broker model
-        deliveryTime: deliveryTime || "24 Hours",
-        active: true,
-      })
-      .returning();
-
-    return c.json({
-      success: true,
-      message: "Product created successfully!",
-      product: newProduct,
-    });
-  } catch (error) {
-    console.error("Failed to create product:", error);
-    return c.json({ success: false, message: "Internal server error (Slug might already exist)" }, 500);
-  }
-});
-// GET endpoint for customer order tracking
 app.get("/api/orders/track", async (c) => {
   try {
     const email = c.req.query("email");
-
-    if (!email) {
-      return c.json({ success: false, message: "Email parameter is required" }, 400);
-    }
+    if (!email) return c.json({ success: false, message: "Email required" }, 400);
 
     const db = createDb(c.env.DATABASE_URL);
 
-    // Find customer by email
     const [customer] = await db
       .select()
       .from(customers)
       .where(eq(customers.email, email.toLowerCase().trim()));
 
-    if (!customer) {
-      return c.json({ success: true, orders: [] }); // No customer found, return empty array
-    }
+    if (!customer) return c.json({ success: true, orders: [] });
 
-    // Fetch all orders for this customer joined with product info
     const customerOrders = await db
       .select({
         id: orders.id,
@@ -188,13 +455,39 @@ app.get("/api/orders/track", async (c) => {
       .where(eq(orders.customerId, customer.id))
       .orderBy(desc(orders.createdAt));
 
-    return c.json({
-      success: true,
-      orders: customerOrders,
-    });
+    return c.json({ success: true, orders: customerOrders });
   } catch (error) {
     console.error("Order tracking error:", error);
     return c.json({ success: false, message: "Internal server error" }, 400);
+  }
+});
+
+app.put("/api/orders/:id/status", async (c) => {
+  try {
+    const orderId = c.req.param("id");
+    const { status } = await c.req.json();
+
+    const validStatuses = ["new", "processing", "completed", "failed", "refunded"];
+    if (!validStatuses.includes(status)) {
+      return c.json({ success: false, message: "Invalid status type" }, 400);
+    }
+
+    const db = createDb(c.env.DATABASE_URL);
+
+    const [updatedOrder] = await db
+      .update(orders)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+      .returning();
+
+    if (!updatedOrder) {
+      return c.json({ success: false, message: "Order not found" }, 404);
+    }
+
+    return c.json({ success: true, order: updatedOrder });
+  } catch (error) {
+    console.error("Failed to update order status:", error);
+    return c.json({ success: false, message: "Internal server error" }, 500);
   }
 });
 

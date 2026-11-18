@@ -8,48 +8,85 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
+// --------------------------------------------------
+// CUSTOMERS
+// --------------------------------------------------
+export const customers = pgTable("customers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  walletBalance: integer("wallet_balance").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --------------------------------------------------
+// PLATFORMS (e.g., YouTube, TikTok, Instagram)
+// --------------------------------------------------
+export const platforms = pgTable("platforms", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  imageUrl: text("image_url"),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --------------------------------------------------
+// SERVICE CATEGORIES (e.g., YouTube Subscribers, YouTube Views)
+// --------------------------------------------------
+export const serviceCategories = pgTable("service_categories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  platformId: uuid("platform_id")
+    .references(() => platforms.id, { onDelete: "cascade" })
+    .notNull(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --------------------------------------------------
+// PRODUCTS
+// --------------------------------------------------
 export const products = pgTable("products", {
   id: uuid("id").defaultRandom().primaryKey(),
+  categoryId: uuid("category_id")
+    .references(() => serviceCategories.id, { onDelete: "cascade" })
+    .notNull(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   description: text("description"),
-  price: integer("price").notNull(), // Stored in smallest currency unit
+  price: integer("price").notNull(),
   currency: text("currency").default("ETB").notNull(),
-  badge: text("badge"), // e.g., 'new', 'best_seller', 'top'
-  category: text("category").notNull(),        // e.g., "TikTok", "Instagram", "YouTube"
-  serviceType: text("service_type").notNull(), // e.g., "views", "followers", "likes"
+  badge: text("badge"),
+
+  // Rich attributes (match your screenshots)
+  quality: text("quality"),
+  speed: text("speed"),
+  startTime: text("start_time"),
+  refill: text("refill"),
+  dropRate: text("drop_rate"),
+  serverInfo: text("server_info"),
+  tags: jsonb("tags").default([]),
+
+  serviceType: text("service_type").notNull().default("General"),
   imageUrl: text("image_url"),
   deliveryType: text("delivery_type").default("automatic").notNull(),
   deliveryTime: text("delivery_time"),
-  requirements: jsonb("requirements"), // e.g., target profile/video URL
+  requirements: jsonb("requirements"),
   refundPolicy: text("refund_policy"),
   provider: text("provider"),
-  pricingType: text("pricing_type").default("quantity").notNull(), // "quantity" (per 1k) or "flat" (fixed price)
-  averageTime: text("average_time").default("15 minutes"), // e.g., "13 minutes"
+  pricingType: text("pricing_type").default("quantity").notNull(),
+  averageTime: text("average_time").default("15 minutes"),
   minOrder: integer("min_order").default(100).notNull(),
   maxOrder: integer("max_order").default(1000000).notNull(),
   active: boolean("active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
-// 1. Customers Table (Supports wallets and customer tracking)
-export const customers = pgTable("customers", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  email: text("email").notNull().unique(),
-  name: text("name"),
-  walletBalance: integer("wallet_balance").default(0).notNull(), // Stored in smallest currency unit (e.g., cents)
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
 
-export const platforms = pgTable("platforms", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  name: text("name").notNull().unique(),
-  slug: text("slug").notNull().unique(),
-  imageUrl: text("image_url"), // Icon or logo image URL
-  active: boolean("active").default(true).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// 2. Orders Table (Tracks new, processing, completed, failed, and refunded orders)
+// --------------------------------------------------
+// ORDERS
+// --------------------------------------------------
 export const orders = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),
   customerId: uuid("customer_id")
@@ -58,41 +95,46 @@ export const orders = pgTable("orders", {
   productId: uuid("product_id")
     .references(() => products.id)
     .notNull(),
-  
-  // Matches your admin dashboard categories: new, processing, completed, failed, refunded
-  status: text("status").default("new").notNull(), 
-  
+  status: text("status").default("new").notNull(),
   quantity: integer("quantity").default(1).notNull(),
-  totalAmount: integer("total_amount").notNull(), // Total price in smallest currency unit
-  
-  // Stores user-submitted info like their TikTok link, Instagram handle, or Meta verification details
-  metadata: jsonb("metadata"), 
-  
+  totalAmount: integer("total_amount").notNull(),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-
-// 3. Transactions Table (Tracks wallet deposits, purchases, and refunds)
+// --------------------------------------------------
+// TRANSACTIONS
+// --------------------------------------------------
 export const transactions = pgTable("transactions", {
   id: uuid("id").defaultRandom().primaryKey(),
   customerId: uuid("customer_id")
     .references(() => customers.id)
     .notNull(),
-  amount: integer("amount").notNull(), // Positive for deposits, negative for purchases
-  type: text("type").notNull(), // 'deposit', 'purchase', 'refund'
-  status: text("status").default("completed").notNull(), // 'pending', 'completed', 'failed'
+  amount: integer("amount").notNull(),
+  type: text("type").notNull(),
+  status: text("status").default("completed").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// --------------------------------------------------
+// CONTACT CHANNELS
+// --------------------------------------------------
 export const contactChannels = pgTable("contact_channels", {
   id: uuid("id").primaryKey().defaultRandom(),
-  type: text("type").notNull(),        // 'telegram' | 'facebook' | 'instagram' | 'email' | 'whatsapp' | 'custom'
-  label: text("label").notNull(),      // e.g. "Support Bot", "Sales", "@shortcut_official"
-  value: text("value").notNull(),      // the URL, phone, or email
-  iconUrl: text("icon_url"),           // optional override image
-  description: text("description"),    // optional short text
+  type: text("type").notNull(),
+  label: text("label").notNull(),
+  value: text("value").notNull(),
+  iconUrl: text("icon_url"),
+  description: text("description"),
   sortOrder: integer("sort_order").default(0).notNull(),
   active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+// Add this to your schema.ts
+export const userRoles = pgTable("user_roles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull(),
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

@@ -8,9 +8,10 @@ export default function AdminPlatformsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
   const fetchPlatforms = async () => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
       const res = await fetch(`${API_URL}/api/platforms`);
       const data = await res.json();
       if (data.success) setPlatforms(data.platforms);
@@ -29,7 +30,9 @@ export default function AdminPlatformsPage() {
     setLoading(true);
 
     try {
-      const url = editingId ? `/api/platforms/${editingId}` : "/api/platforms";
+      const url = editingId
+        ? `${API_URL}/api/platforms/${editingId}`
+        : `${API_URL}/api/platforms`;
       const method = editingId ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -71,10 +74,15 @@ export default function AdminPlatformsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this platform?")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this platform? All categories and products under it will be removed."
+      )
+    )
+      return;
 
     try {
-      const res = await fetch(`/api/platforms/${id}`, {
+      const res = await fetch(`${API_URL}/api/platforms/${id}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -293,6 +301,20 @@ export default function AdminPlatformsPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* NEXT STEP HINT */}
+        <div className="mt-8 p-4 bg-purple-500/10 border border-purple-400/20 rounded-2xl text-xs text-purple-200 flex items-center justify-between gap-4">
+          <p>
+            ✅ Platforms look good. Next, add <strong>Service Categories</strong>{" "}
+            (e.g., "YouTube Subscribers") under each platform.
+          </p>
+          <a
+            href="/admin/categories"
+            className="shrink-0 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-[11px] transition"
+          >
+            Go to Categories →
+          </a>
         </div>
       </div>
     </div>

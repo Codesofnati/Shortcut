@@ -5,24 +5,31 @@ import Navbar from "../components/navbar";
 export default function SmmDashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [platforms, setPlatforms] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+
   const [selectedPlatform, setSelectedPlatform] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedService, setSelectedService] = useState<any | null>(null);
+
   const [quantity, setQuantity] = useState(1000);
   const [targetLink, setTargetLink] = useState("");
   const [email, setEmail] = useState("");
   const [paymentRef, setPaymentRef] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   // Custom picker open/close state
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
   useEffect(() => {
     Promise.all([
-      fetch("/api/products").then((res) => res.json()),
-      fetch("/api/platforms").then((res) => res.json()),
+      fetch(`${API_URL}/api/products`).then((res) => res.json()),
+      fetch(`${API_URL}/api/platforms`).then((res) => res.json()),
+      fetch(`${API_URL}/api/service-categories`).then((res) => res.json()),
     ])
-      .then(([prodData, platData]) => {
+      .then(([prodData, platData, catData]) => {
         if (prodData.success) {
           setProducts(prodData.products);
           if (prodData.products.length > 0) {
@@ -30,18 +37,23 @@ export default function SmmDashboard() {
             setQuantity(prodData.products[0].minOrder || 100);
           }
         }
-        if (platData.success) {
-          setPlatforms(platData.platforms);
-        }
+        if (platData.success) setPlatforms(platData.platforms);
+        if (catData.success) setCategories(catData.categories);
       })
       .catch((err) => console.error(err));
-  }, []);
+  }, [API_URL]);
 
-  // Close picker on outside click
+  // Add this Ref
+  const categoryRef = useRef<HTMLDivElement>(null);
+
+  // Update your existing click-outside useEffect to handle both
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setPickerOpen(false);
+      }
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setCategoryPickerOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
@@ -51,56 +63,62 @@ export default function SmmDashboard() {
   // Close picker on Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPickerOpen(false);
+      if (e.key === "Escape") {
+        setPickerOpen(false);
+        setCategoryPickerOpen(false);
+      }
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
-  const filteredServices = products.filter(
+  // 1. Filter by Platform
+  const platformFilteredServices = products.filter(
     (p) =>
       selectedPlatform === "All" ||
-      p.category.toLowerCase() === selectedPlatform.toLowerCase()
+      p.platformName?.toLowerCase() === selectedPlatform.toLowerCase()
   );
 
-  // ✅ Sync selected service with active platform filter
-  // When the user clicks a new platform, if the currently-selected
-  // service isn't in the new filtered list, auto-select the first one.
+  // 2. Get Categories for the current Platform (or all if "All")
+  const availableCategories = categories.filter(
+    (c) =>
+      selectedPlatform === "All" ||
+      c.platformId === platforms.find((p) => p.name === selectedPlatform)?.id
+  );
+
+  // 3. Filter by Category
+  const filteredServices = platformFilteredServices.filter(
+    (p) =>
+      selectedCategory === "All" ||
+      p.categoryName?.toLowerCase() === selectedCategory.toLowerCase()
+  );
+
+  // Sync selected service with active filters
   useEffect(() => {
     if (products.length === 0) return;
-
-    const stillVisible =
-      selectedService &&
-      filteredServices.some((p) => p.id === selectedService.id);
+    const stillVisible = selectedService && filteredServices.some((p) => p.id === selectedService.id);
 
     if (!stillVisible) {
       const first = filteredServices[0] || null;
       setSelectedService(first);
       setQuantity(first?.minOrder || 100);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPlatform, products.length]);
+  }, [selectedPlatform, selectedCategory, products.length, filteredServices, selectedService]);
 
-  const currentPlatformObj = platforms.find(
-    (p) => p.name === selectedService?.category
-  );
+  const currentPlatformObj = platforms.find((p) => p.name === selectedService?.platformName);
   const serviceImageUrl = selectedService?.imageUrl || currentPlatformObj?.imageUrl;
 
   const getIcon = (p: any) => {
-    const plat = platforms.find((pl) => pl.name === p.category);
+    const plat = platforms.find((pl) => pl.name === p.platformName);
     return p.imageUrl || plat?.imageUrl;
   };
 
   const calculateTotal = () => {
     if (!selectedService) return "0.00";
     const basePriceInEtb = selectedService.price / 100;
-
-    if (selectedService.pricingType === "flat") {
-      return basePriceInEtb.toFixed(2);
-    } else {
-      const total = (basePriceInEtb / 1000) * quantity;
-      return total.toFixed(2);
-    }
+    if (selectedService.pricingType === "flat") return basePriceInEtb.toFixed(2);
+    const total = (basePriceInEtb / 1000) * quantity;
+    return total.toFixed(2);
   };
 
   const handleOrderSubmit = async (e: React.FormEvent) => {
@@ -109,11 +127,21 @@ export default function SmmDashboard() {
       alert("Please fill in all fields including your email and payment reference.");
       return;
     }
+    
+    // Final validation check before submit
+    if (quantity < (selectedService?.minOrder || 10)) {
+      alert(`Minimum order is ${selectedService?.minOrder || 10}`);
+      return;
+    }
+    if (quantity > (selectedService?.maxOrder || 1000000)) {
+      alert(`Maximum order is ${selectedService?.maxOrder || 1000000}`);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const totalAmountInCents = Math.round(Number(calculateTotal()) * 100);
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
       const res = await fetch(`${API_URL}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -146,6 +174,7 @@ export default function SmmDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FBFBFA] via-white to-[#FAF8FF] text-neutral-900 font-sans selection:bg-purple-200 relative overflow-x-hidden">
+      {/* Background glows */}
       <div className="pointer-events-none fixed top-0 right-0 w-[600px] h-[600px] bg-purple-300/25 blur-[140px] rounded-full -translate-y-1/3 translate-x-1/3" />
       <div className="pointer-events-none fixed bottom-0 left-0 w-[600px] h-[600px] bg-fuchsia-300/20 blur-[140px] rounded-full translate-y-1/3 -translate-x-1/3" />
       <div className="pointer-events-none fixed top-1/2 left-1/2 w-[400px] h-[400px] bg-emerald-200/10 blur-[140px] rounded-full -translate-x-1/2 -translate-y-1/2" />
@@ -156,31 +185,31 @@ export default function SmmDashboard() {
       <div className="relative bg-white/70 backdrop-blur-xl border-b border-neutral-200/60">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-2.5 overflow-x-auto">
           <button
-            onClick={() => setSelectedPlatform("All")}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-              selectedPlatform === "All"
-                ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-300/40 scale-[1.02]"
-                : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300"
-            }`}
+            onClick={() => {
+              setSelectedPlatform("All");
+              setSelectedCategory("All");
+            }}
+            className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${selectedPlatform === "All"
+              ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-300/40 scale-[1.02]"
+              : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300"
+              }`}
           >
             <span>✨</span> All Platforms
           </button>
           {platforms.map((plat) => (
             <button
               key={plat.id}
-              onClick={() => setSelectedPlatform(plat.name)}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-                selectedPlatform === plat.name
-                  ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-300/40 scale-[1.02]"
-                  : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300"
-              }`}
+              onClick={() => {
+                setSelectedPlatform(plat.name);
+                setSelectedCategory("All");
+              }}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${selectedPlatform === plat.name
+                ? "bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-lg shadow-purple-300/40 scale-[1.02]"
+                : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300"
+                }`}
             >
               {plat.imageUrl && (
-                <img
-                  src={plat.imageUrl}
-                  alt=""
-                  className="w-4 h-4 rounded object-cover"
-                />
+                <img src={plat.imageUrl} alt="" className="w-4 h-4 rounded object-cover" />
               )}
               {plat.name}
             </button>
@@ -202,8 +231,7 @@ export default function SmmDashboard() {
               </span>
             </h1>
             <p className="text-sm text-neutral-500 mt-2 max-w-md">
-              Pick a service, enter your details, and confirm your payment reference
-              — we'll handle the rest.
+              Pick a service, enter your details, and confirm your payment reference — we'll handle the rest.
             </p>
           </div>
           <div className="hidden md:flex items-center gap-2 text-xs font-bold text-neutral-600 bg-white/80 border border-neutral-200 rounded-full px-4 py-2 shadow-sm">
@@ -241,17 +269,134 @@ export default function SmmDashboard() {
                   </div>
                 </div>
 
+                {/* Custom Modern Category Dropdown */}
+                {availableCategories.length > 0 && (
+                  <div className="mb-5" ref={categoryRef}>
+                    <label className="text-[10px] uppercase tracking-wider text-neutral-500 block mb-1.5 font-bold">
+                      Category
+                    </label>
+
+                    <div className="relative">
+                      {/* Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={() => setCategoryPickerOpen((v) => !v)}
+                        className={`w-full p-3.5 bg-white border rounded-2xl text-sm font-medium text-left flex items-center justify-between transition cursor-pointer ${categoryPickerOpen
+                            ? "border-purple-400 ring-4 ring-purple-100 shadow-sm"
+                            : "border-neutral-200 hover:border-neutral-300 shadow-sm"
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Platform Icon */}
+                          <div className="w-8 h-8 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center shrink-0">
+                            {selectedPlatform !== "All" && currentPlatformObj?.imageUrl ? (
+                              <img
+                                src={currentPlatformObj.imageUrl}
+                                alt=""
+                                className="w-5 h-5 rounded object-cover"
+                              />
+                            ) : (
+                              <span className="text-purple-600 text-sm">✨</span>
+                            )}
+                          </div>
+                          <span className="font-bold text-neutral-900 truncate">
+                            {selectedCategory === "All" ? "All Services in this Platform" : selectedCategory}
+                          </span>
+                        </div>
+
+                        <span
+                          className={`text-neutral-400 text-xs shrink-0 transition-transform duration-200 ${categoryPickerOpen ? "rotate-180" : ""
+                            }`}
+                        >
+                          ▼
+                        </span>
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {categoryPickerOpen && (
+                        <div className="absolute z-50 mt-2 w-full max-h-80 overflow-y-auto bg-white border border-neutral-200 rounded-2xl shadow-2xl shadow-purple-300/20 p-1.5">
+
+                          {/* "All" Option */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory("All");
+                              setCategoryPickerOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition cursor-pointer mb-1 ${selectedCategory === "All"
+                                ? "bg-purple-50 border border-purple-200"
+                                : "hover:bg-neutral-50 border border-transparent"
+                              }`}
+                          >
+                            <div className="w-8 h-8 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
+                              <span className="text-purple-600 text-sm">✨</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-neutral-900">All Services</p>
+                              <p className="text-[10px] text-neutral-500">Show everything for this platform</p>
+                            </div>
+                            {selectedCategory === "All" && <span className="text-purple-600 text-sm">✓</span>}
+                          </button>
+
+                          <div className="h-px bg-neutral-100 my-1 mx-2" />
+
+                          {/* Category Options */}
+                          {availableCategories.map((c) => {
+                            const isSelected = selectedCategory === c.name;
+                            const platImage = platforms.find((p) => p.id === c.platformId)?.imageUrl;
+
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategory(c.name);
+                                  setCategoryPickerOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition cursor-pointer ${isSelected
+                                    ? "bg-purple-50 border border-purple-200"
+                                    : "hover:bg-neutral-50 border border-transparent"
+                                  }`}
+                              >
+                                {/* Category Platform Image */}
+                                <div className="w-8 h-8 rounded-xl bg-white border border-neutral-200 flex items-center justify-center p-1 shrink-0">
+                                  {platImage ? (
+                                    <img src={platImage} alt="" className="w-6 h-6 object-contain" />
+                                  ) : (
+                                    <span className="text-xs font-bold text-neutral-400">
+                                      {c.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-neutral-900 truncate">
+                                    {c.name}
+                                  </p>
+                                </div>
+
+                                {isSelected && (
+                                  <span className="text-purple-600 text-sm shrink-0">✓</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Custom Service Picker */}
                 <div ref={pickerRef} className="relative">
                   {/* Trigger */}
                   <button
                     type="button"
                     onClick={() => setPickerOpen((v) => !v)}
-                    className={`w-full p-3.5 bg-white border rounded-2xl text-sm font-medium text-left flex items-center gap-3 transition cursor-pointer ${
-                      pickerOpen
-                        ? "border-purple-400 ring-4 ring-purple-100"
-                        : "border-neutral-200 hover:border-neutral-300"
-                    }`}
+                    className={`w-full p-3.5 bg-white border rounded-2xl text-sm font-medium text-left flex items-center gap-3 transition cursor-pointer ${pickerOpen
+                      ? "border-purple-400 ring-4 ring-purple-100"
+                      : "border-neutral-200 hover:border-neutral-300"
+                      }`}
                   >
                     {selectedIcon ? (
                       <img
@@ -261,13 +406,13 @@ export default function SmmDashboard() {
                       />
                     ) : (
                       <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                        {selectedService?.category?.[0]?.toUpperCase() || "?"}
+                        {selectedService?.platformName?.[0]?.toUpperCase() || "?"}
                       </div>
                     )}
 
                     <span className="flex-1 min-w-0 truncate text-neutral-900">
                       {selectedService
-                        ? `${selectedService.category} — ${selectedService.name}`
+                        ? `${selectedService.categoryName || selectedService.platformName} — ${selectedService.name}`
                         : "Select a service"}
                     </span>
 
@@ -279,9 +424,8 @@ export default function SmmDashboard() {
                     )}
 
                     <span
-                      className={`text-neutral-400 text-xs shrink-0 transition-transform ${
-                        pickerOpen ? "rotate-180" : ""
-                      }`}
+                      className={`text-neutral-400 text-xs shrink-0 transition-transform ${pickerOpen ? "rotate-180" : ""
+                        }`}
                     >
                       ▼
                     </span>
@@ -307,47 +451,68 @@ export default function SmmDashboard() {
                                 setQuantity(p.minOrder || 100);
                                 setPickerOpen(false);
                               }}
-                              className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition cursor-pointer ${
-                                isSelected
-                                  ? "bg-purple-50 border border-purple-200"
-                                  : "hover:bg-neutral-50 border border-transparent"
-                              }`}
+                              className={`w-full flex flex-col gap-2 p-3 rounded-xl text-left transition cursor-pointer border ${isSelected
+                                ? "bg-orange-50 border-orange-200"
+                                : "hover:bg-neutral-50 border-transparent hover:border-neutral-200"
+                                }`}
                             >
-                              {icon ? (
-                                <img
-                                  src={icon}
-                                  alt=""
-                                  className="w-9 h-9 rounded-xl object-cover bg-white border border-neutral-200 p-1 shrink-0"
-                                />
-                              ) : (
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                                  {p.category?.[0]?.toUpperCase() || "?"}
+                              <div className="flex items-start justify-between w-full">
+                                <div className="flex items-center gap-3">
+                                  {icon ? (
+                                    <img
+                                      src={icon}
+                                      alt=""
+                                      className="w-8 h-8 rounded-lg object-cover bg-white border border-neutral-200 p-0.5 shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                      {p.platformName?.[0]?.toUpperCase() || "?"}
+                                    </div>
+                                  )}
+                                  <div className="min-w-0">
+                                    {p.badge && (
+                                      <span className="inline-block px-1.5 py-0.5 bg-orange-600 text-white text-[9px] font-bold uppercase rounded mb-1">
+                                        {p.badge.replace('_', ' ')}
+                                      </span>
+                                    )}
+                                    <p className="text-sm font-bold text-neutral-900 truncate">
+                                      {p.name}
+                                    </p>
+                                  </div>
                                 </div>
-                              )}
-
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[10px] uppercase tracking-wider text-neutral-500 font-bold">
-                                  {p.category}
-                                </p>
-                                <p className="text-sm font-bold text-neutral-900 truncate">
-                                  {p.name}
-                                </p>
+                                <div className="text-right shrink-0 ml-2">
+                                  <p className="text-sm font-extrabold text-emerald-600">
+                                    {p.price / 100} {p.currency}
+                                  </p>
+                                  <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                                    {p.pricingType === "flat" ? "flat" : "per 1k"}
+                                  </p>
+                                </div>
                               </div>
 
-                              <div className="text-right shrink-0">
-                                <p className="text-xs font-extrabold text-emerald-600">
-                                  {p.price / 100} {p.currency}
-                                </p>
-                                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
-                                  {p.pricingType === "flat" ? "flat" : "per 1k"}
-                                </p>
+                              {/* Rich Tags */}
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {p.refill && (
+                                  <span className="px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-semibold">
+                                    ♻️ {p.refill}
+                                  </span>
+                                )}
+                                {p.dropRate && (
+                                  <span className="px-2 py-0.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
+                                    Drop: {p.dropRate}
+                                  </span>
+                                )}
+                                {p.speed && (
+                                  <span className="px-2 py-0.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
+                                    ⚡ {p.speed}
+                                  </span>
+                                )}
+                                {p.quality && (
+                                  <span className="px-2 py-0.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
+                                    {p.quality}
+                                  </span>
+                                )}
                               </div>
-
-                              {isSelected && (
-                                <span className="text-purple-600 text-sm shrink-0">
-                                  ✓
-                                </span>
-                              )}
                             </button>
                           );
                         })
@@ -383,6 +548,7 @@ export default function SmmDashboard() {
                     <input
                       type="email"
                       required
+                      maxLength={40}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@example.com"
@@ -399,6 +565,7 @@ export default function SmmDashboard() {
                     <input
                       type="text"
                       required
+                      maxLength={80}
                       value={targetLink}
                       onChange={(e) => setTargetLink(e.target.value)}
                       placeholder={
@@ -416,24 +583,64 @@ export default function SmmDashboard() {
                         Quantity
                       </label>
                       <input
-                        type="number"
-                        min={selectedService?.minOrder || 10}
-                        max={selectedService?.maxOrder || 10000000}
-                        value={quantity}
-                        onChange={(e) => setQuantity(Number(e.target.value))}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={15}
+                        value={quantity === 0 ? "" : quantity}
+                        onChange={(e) => {
+                          // 1. Remove all non-numeric characters
+                          let val = e.target.value.replace(/[^0-9]/g, "");
+                          
+                          // 2. Ensure it doesn't exceed 15 digits (just in case maxLength fails)
+                          if (val.length > 15) val = val.slice(0, 15);
+                          
+                          const numVal = val ? Number(val) : 0;
+                          
+                          // 3. Enforce the product's max order limit dynamically
+                          if (selectedService?.maxOrder && numVal > selectedService.maxOrder) {
+                            setQuantity(selectedService.maxOrder);
+                          } else {
+                            setQuantity(numVal);
+                          }
+                        }}
+                        onBlur={() => {
+                          // If they leave it empty, reset to the minimum order amount
+                          if (quantity === 0) {
+                            setQuantity(selectedService?.minOrder || 100);
+                          }
+                          // Ensure it's not below the minimum order
+                          if (selectedService?.minOrder && quantity < selectedService.minOrder) {
+                            setQuantity(selectedService.minOrder);
+                          }
+                        }}
+                        placeholder={String(selectedService?.minOrder || 100)}
                         className="w-full p-4 bg-white border border-neutral-200 rounded-2xl font-bold text-sm focus:outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-100 transition"
                       />
+                      
+                      <div className="flex justify-between items-center mt-1.5 px-1">
+                        <p className="text-[10px] text-neutral-400 font-medium">
+                          Min: {selectedService?.minOrder || 100} — Max: {selectedService?.maxOrder ? selectedService.maxOrder.toLocaleString() : "1,000,000"}
+                        </p>
+                      </div>
+
                       <div className="flex flex-wrap gap-2 mt-2">
                         {[100, 500, 1000, 5000].map((num) => (
                           <button
                             key={num}
                             type="button"
-                            onClick={() => setQuantity(num)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${
-                              quantity === num
-                                ? "bg-purple-600 border-purple-600 text-white shadow-sm"
-                                : "bg-purple-50 hover:bg-purple-100 border-purple-100 text-purple-700"
-                            }`}
+                            onClick={() => {
+                               // Enforce max limit when clicking preset buttons too
+                               if (selectedService?.maxOrder && num > selectedService.maxOrder) {
+                                  setQuantity(selectedService.maxOrder);
+                               } else {
+                                  setQuantity(num);
+                               }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${quantity === num
+                              ? "bg-purple-600 border-purple-600 text-white shadow-sm"
+                              : "bg-purple-50 hover:bg-purple-100 border-purple-100 text-purple-700"
+                              }`}
                           >
                             +{num}
                           </button>
@@ -459,8 +666,7 @@ export default function SmmDashboard() {
                   </div>
 
                   <p className="text-xs text-neutral-600 leading-relaxed mb-4">
-                    Send the exact total to one of the accounts below, then paste your
-                    transaction ID in the field at the bottom of this form.
+                    Send the exact total to one of the accounts below, then paste your transaction ID in the field at the bottom of this form.
                   </p>
 
                   <div className="space-y-2 mb-4">
@@ -480,9 +686,7 @@ export default function SmmDashboard() {
                       </div>
                       <button
                         type="button"
-                        onClick={() =>
-                          navigator.clipboard?.writeText("0984181221")
-                        }
+                        onClick={() => navigator.clipboard?.writeText("0984181221")}
                         className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-neutral-900 hover:bg-neutral-800 text-white transition cursor-pointer shrink-0"
                       >
                         Copy
@@ -530,6 +734,7 @@ export default function SmmDashboard() {
                       type="text"
                       required
                       value={paymentRef}
+                      maxLength={20}
                       onChange={(e) => setPaymentRef(e.target.value)}
                       placeholder="e.g. FT2438910XYZ"
                       className="w-full p-4 bg-white border border-neutral-200 rounded-2xl text-sm uppercase font-mono tracking-wider focus:outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-100 transition"
@@ -597,9 +802,8 @@ export default function SmmDashboard() {
                 <span className="relative inline-flex items-center justify-center gap-2">
                   {submitting
                     ? "Submitting..."
-                    : `Submit Order — ${calculateTotal()} ${
-                        selectedService?.currency || "ETB"
-                      }`}
+                    : `Submit Order — ${calculateTotal()} ${selectedService?.currency || "ETB"
+                    }`}
                   {!submitting && (
                     <span className="transition-transform group-hover:translate-x-0.5">
                       →
@@ -630,12 +834,12 @@ export default function SmmDashboard() {
                     />
                   ) : (
                     <div className="relative w-16 h-16 rounded-2xl bg-white/10 border border-white/20 shrink-0 flex items-center justify-center text-xl font-bold">
-                      {selectedService.category?.[0] || "S"}
+                      {selectedService.platformName?.[0] || "S"}
                     </div>
                   )}
                   <div className="relative flex-1 min-w-0">
                     <span className="text-[10px] bg-white/15 backdrop-blur-sm px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">
-                      {selectedService.category}
+                      {selectedService.categoryName || selectedService.platformName}
                     </span>
                     <h2 className="text-lg font-extrabold mt-2 truncate tracking-tight">
                       {selectedService.name}
@@ -646,13 +850,10 @@ export default function SmmDashboard() {
                 <div className="relative grid grid-cols-2 gap-3 text-center">
                   <div className="p-4 bg-gradient-to-br from-white to-neutral-50 rounded-2xl border border-neutral-200/80">
                     <span className="text-[10px] text-neutral-400 block uppercase font-bold tracking-wider mb-1">
-                      {selectedService.pricingType === "flat"
-                        ? "Subscription Price"
-                        : "Rate / 1k"}
+                      {selectedService.pricingType === "flat" ? "Subscription Price" : "Rate / 1k"}
                     </span>
                     <span className="font-extrabold text-sm text-neutral-900">
-                      {(selectedService.price / 100).toLocaleString()}{" "}
-                      {selectedService.currency}
+                      {(selectedService.price / 100).toLocaleString()} {selectedService.currency}
                     </span>
                   </div>
                   <div className="p-4 bg-gradient-to-br from-purple-50 to-white rounded-2xl border border-purple-100">
@@ -667,14 +868,14 @@ export default function SmmDashboard() {
 
                 <div className="relative rounded-2xl border border-neutral-200/80 bg-white/60 overflow-hidden">
                   {[
-                    { label: "Start Time", value: "Instant", icon: "⏳" },
-                    { label: "Link Format", value: "Post Link", icon: "🔗" },
+                    { label: "Start Time", value: selectedService.startTime || "Instant", icon: "⏳" },
+                    { label: "Refill Policy", value: selectedService.refill || "No Refill", icon: "♻️" },
+                    { label: "Server", value: selectedService.serverInfo || "Default", icon: "🖥️" },
                   ].map((row, i, arr) => (
                     <div
                       key={row.label}
-                      className={`flex items-center justify-between px-4 py-3 text-xs ${
-                        i !== arr.length - 1 ? "border-b border-neutral-100" : ""
-                      }`}
+                      className={`flex items-center justify-between px-4 py-3 text-xs ${i !== arr.length - 1 ? "border-b border-neutral-100" : ""
+                        }`}
                     >
                       <div className="flex items-center gap-2 text-neutral-600 font-semibold">
                         <span>{row.icon}</span>
@@ -692,7 +893,7 @@ export default function SmmDashboard() {
                     Description & Instructions
                   </h4>
                   <p className="leading-relaxed bg-gradient-to-br from-neutral-50 to-purple-50/30 p-4 rounded-2xl border border-neutral-200/80 text-neutral-600 whitespace-pre-line">
-                    {selectedService.description}
+                    {selectedService.description || "No description provided."}
                   </p>
                 </div>
 
@@ -704,30 +905,8 @@ export default function SmmDashboard() {
                     </h4>
                   </div>
                   <p className="text-xs text-amber-900/90 leading-relaxed">
-                    Before submitting your order, double-check the link format and
-                    follow the instructions.
+                    Before submitting your order, double-check the link format and follow the instructions.
                   </p>
-                </div>
-
-                <div className="relative space-y-2">
-                  <h4 className="font-bold text-neutral-900 uppercase tracking-[0.15em] text-[10px] mb-2">
-                    Common Mistakes to Avoid
-                  </h4>
-                  {[
-                    "Using a private link when a public link is required (check the Link Format above).",
-                    "Submitting a duplicate order for the same link before the first is fully delivered.",
-                    "Changing the link while your order is in progress — this marks it completed and voids any refund.",
-                  ].map((tip) => (
-                    <div
-                      key={tip}
-                      className="flex items-start gap-2.5 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-800 leading-relaxed"
-                    >
-                      <span className="text-red-500 font-bold shrink-0 mt-[1px]">
-                        ✕
-                      </span>
-                      <span>{tip}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
 

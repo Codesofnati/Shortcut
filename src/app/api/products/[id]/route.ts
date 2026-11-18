@@ -15,7 +15,7 @@ export async function PUT(
       description, 
       price, 
       currency, 
-      categoryId, // <--- CHANGED from 'category'
+      categoryId,
       serviceType, 
       badge, 
       active, 
@@ -25,7 +25,6 @@ export async function PUT(
       minOrder,
       maxOrder,
       deliveryTime,
-      // NEW rich attributes
       quality,
       speed,
       startTime,
@@ -42,6 +41,12 @@ export async function PUT(
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
+    // Safely parse the boolean
+    let parsedActive = undefined;
+    if (active !== undefined) {
+      parsedActive = active === true || active === "true";
+    }
+
     const [updatedProduct] = await db
       .update(products)
       .set({
@@ -50,7 +55,7 @@ export async function PUT(
         description,
         price: Number(price),
         currency: currency || "ETB",
-        categoryId, // <--- CHANGED to match schema
+        categoryId,
         serviceType: serviceType || "General",
         badge: badge ? badge : null,
         imageUrl: imageUrl || null,
@@ -59,9 +64,10 @@ export async function PUT(
         minOrder: pricingType === "flat" ? 1 : (minOrder ? Number(minOrder) : 100),
         maxOrder: pricingType === "flat" ? 1 : (maxOrder ? Number(maxOrder) : 1000000),
         deliveryTime: averageTime || deliveryTime || "24 Hours",
-        active: active !== undefined ? active : true,
         
-        // NEW rich attributes
+        // Only update 'active' if it was explicitly sent in the body
+        ...(parsedActive !== undefined && { active: parsedActive }),
+
         quality: quality || null,
         speed: speed || null,
         startTime: startTime || null,

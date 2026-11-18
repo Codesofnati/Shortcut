@@ -278,7 +278,7 @@ app.post("/api/products", async (c) => {
         averageTime: averageTime || "15 minutes",
         minOrder: minOrder !== undefined ? Number(minOrder) : 100,
         maxOrder: maxOrder !== undefined ? Number(maxOrder) : 1000000,
-        active: active !== undefined ? active : true,
+    active: active === true || active === "true" ? true : (active === false || active === "false" ? false : true),
       })
       .returning();
 

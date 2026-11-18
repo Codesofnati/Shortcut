@@ -389,49 +389,110 @@ export default function SmmDashboard() {
 
                 {/* Custom Service Picker */}
                 <div ref={pickerRef} className="relative">
-                  {/* Trigger */}
+                  {/* Expanded Trigger Card */}
                   <button
                     type="button"
                     onClick={() => setPickerOpen((v) => !v)}
-                    className={`w-full p-3.5 bg-white border rounded-2xl text-sm font-medium text-left flex items-center gap-3 transition cursor-pointer ${pickerOpen
-                      ? "border-purple-400 ring-4 ring-purple-100"
-                      : "border-neutral-200 hover:border-neutral-300"
+                    className={`w-full flex flex-col gap-2 p-4 rounded-2xl text-left transition cursor-pointer border-2 ${pickerOpen
+                        ? "border-purple-400 bg-purple-50/30 ring-4 ring-purple-100 shadow-sm"
+                        : "border-neutral-200 bg-white hover:border-purple-300 shadow-sm"
                       }`}
                   >
-                    {selectedIcon ? (
-                      <img
-                        src={selectedIcon}
-                        alt=""
-                        className="w-7 h-7 rounded-lg object-cover bg-white border border-neutral-200 p-0.5 shrink-0"
-                      />
+                    {selectedService ? (
+                      <>
+                        {/* Top Row: Icon, Badge, Name, Price */}
+                        <div className="flex items-start justify-between w-full">
+                          <div className="flex items-center gap-3">
+                            {selectedIcon ? (
+                              <img
+                                src={selectedIcon}
+                                alt=""
+                                className="w-9 h-9 rounded-xl object-cover bg-white border border-neutral-200 p-1 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                {selectedService?.platformName?.[0]?.toUpperCase() || "?"}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              {selectedService.badge && (
+                                <span className="inline-block px-2 py-0.5 bg-orange-600 text-white text-[10px] font-bold uppercase rounded mb-1">
+                                  {selectedService.badge.replace('_', ' ')}
+                                </span>
+                              )}
+                              <p className="text-base font-bold text-neutral-900 truncate">
+                                {selectedService.name}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <p className="text-base font-extrabold text-emerald-600">
+                              {(selectedService.price / 100).toLocaleString()} {selectedService.currency}
+                            </p>
+                            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                              {selectedService.pricingType === "flat" ? "flat" : "per 1k"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Bottom Row: Rich Tags */}
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {selectedService.id && (
+                            <span className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-full text-[11px] font-semibold">
+                              ID: {selectedService.id.slice(0, 5)}
+                            </span>
+                          )}
+                          {selectedService.refill && (
+                            <span className="px-3 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-[11px] font-semibold">
+                              ♻️ {selectedService.refill}
+                            </span>
+                          )}
+                          {selectedService.dropRate && (
+                            <span className="px-3 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[11px] font-semibold">
+                              Drop: {selectedService.dropRate}
+                            </span>
+                          )}
+                          {selectedService.speed && (
+                            <span className="px-3 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[11px] font-semibold">
+                              ⚡ Speed: {selectedService.speed}
+                            </span>
+                          )}
+                          {selectedService.quality && (
+                            <span className="px-3 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[11px] font-semibold">
+                              {selectedService.quality}
+                            </span>
+                          )}
+                          {selectedService.startTime && (
+                            <span className="px-3 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[11px] font-semibold">
+                              ⏳ Start: {selectedService.startTime}
+                            </span>
+                          )}
+                        </div>
+                      </>
                     ) : (
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-600 to-fuchsia-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                        {selectedService?.platformName?.[0]?.toUpperCase() || "?"}
+                      <div className="flex items-center gap-3 py-2">
+                        <div className="w-8 h-8 rounded-lg bg-neutral-100 text-neutral-400 flex items-center justify-center shrink-0">
+                          ?
+                        </div>
+                        <span className="text-sm font-bold text-neutral-500">Select a service</span>
                       </div>
                     )}
 
-                    <span className="flex-1 min-w-0 truncate text-neutral-900 font-bold">
-                      {selectedService
-                        ? selectedService.name
-                        : "Select a service"}
-                    </span>
-
-                    {selectedService && (
-                      <span className="text-[11px] font-bold text-emerald-600 shrink-0 hidden sm:inline">
-                        {selectedService.price / 100} {selectedService.currency}{" "}
-                        {selectedService.pricingType === "flat" ? "flat" : "/ 1k"}
-                      </span>
-                    )}
-
-                    <span
-                      className={`text-neutral-400 text-xs shrink-0 transition-transform ${pickerOpen ? "rotate-180" : ""
-                        }`}
-                    >
-                      ▼
-                    </span>
+                    {/* Dropdown Arrow (Floating at bottom right) */}
+                    <div className="absolute bottom-4 right-4">
+                      <svg
+                        className={`w-5 h-5 text-neutral-400 transition-transform duration-200 ${pickerOpen ? "rotate-180" : ""
+                          }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </button>
 
-                  {/* Dropdown */}
+                  {/* Dropdown Menu */}
                   {pickerOpen && (
                     <div className="absolute z-50 mt-2 w-full max-h-96 overflow-y-auto bg-white border border-neutral-200 rounded-2xl shadow-2xl shadow-purple-300/20 p-1.5">
                       {filteredServices.length === 0 ? (
@@ -456,7 +517,7 @@ export default function SmmDashboard() {
                                   : "hover:bg-neutral-50 border-transparent hover:border-neutral-200"
                                 }`}
                             >
-                              {/* Top Row: Badge, Name, Price */}
+                              {/* Top Row: Icon, Badge, Name, Price */}
                               <div className="flex items-start justify-between w-full">
                                 <div className="flex items-center gap-3">
                                   {icon ? (
@@ -491,7 +552,7 @@ export default function SmmDashboard() {
                                 </div>
                               </div>
 
-                              {/* Bottom Row: Rich Tags (Refill, Speed, Quality, Drop Rate) */}
+                              {/* Bottom Row: Rich Tags */}
                               <div className="flex flex-wrap gap-1.5 mt-1">
                                 {p.refill && (
                                   <span className="px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-semibold">

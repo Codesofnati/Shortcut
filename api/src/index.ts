@@ -20,7 +20,7 @@ const app = new Hono<{ Bindings: Bindings }>();
 app.use(
   "*",
   cors({
-    origin: ["https://shortcut.vercel.app", "http://localhost:3000"],
+    origin: ["https://shortcut.vercel.app", "http://localhost:3000", "https://shortcut-henna.vercel.app"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
   })

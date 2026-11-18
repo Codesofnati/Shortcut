@@ -127,7 +127,7 @@ export default function SmmDashboard() {
       alert("Please fill in all fields including your email and payment reference.");
       return;
     }
-    
+
     // Final validation check before submit
     if (quantity < (selectedService?.minOrder || 10)) {
       alert(`Minimum order is ${selectedService?.minOrder || 10}`);
@@ -282,8 +282,8 @@ export default function SmmDashboard() {
                         type="button"
                         onClick={() => setCategoryPickerOpen((v) => !v)}
                         className={`w-full p-3.5 bg-white border rounded-2xl text-sm font-medium text-left flex items-center justify-between transition cursor-pointer ${categoryPickerOpen
-                            ? "border-purple-400 ring-4 ring-purple-100 shadow-sm"
-                            : "border-neutral-200 hover:border-neutral-300 shadow-sm"
+                          ? "border-purple-400 ring-4 ring-purple-100 shadow-sm"
+                          : "border-neutral-200 hover:border-neutral-300 shadow-sm"
                           }`}
                       >
                         <div className="flex items-center gap-3">
@@ -324,8 +324,8 @@ export default function SmmDashboard() {
                               setCategoryPickerOpen(false);
                             }}
                             className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition cursor-pointer mb-1 ${selectedCategory === "All"
-                                ? "bg-purple-50 border border-purple-200"
-                                : "hover:bg-neutral-50 border border-transparent"
+                              ? "bg-purple-50 border border-purple-200"
+                              : "hover:bg-neutral-50 border border-transparent"
                               }`}
                           >
                             <div className="w-8 h-8 rounded-xl bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
@@ -354,8 +354,8 @@ export default function SmmDashboard() {
                                   setCategoryPickerOpen(false);
                                 }}
                                 className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition cursor-pointer ${isSelected
-                                    ? "bg-purple-50 border border-purple-200"
-                                    : "hover:bg-neutral-50 border border-transparent"
+                                  ? "bg-purple-50 border border-purple-200"
+                                  : "hover:bg-neutral-50 border border-transparent"
                                   }`}
                               >
                                 {/* Category Platform Image */}
@@ -410,9 +410,9 @@ export default function SmmDashboard() {
                       </div>
                     )}
 
-                    <span className="flex-1 min-w-0 truncate text-neutral-900">
+                    <span className="flex-1 min-w-0 truncate text-neutral-900 font-bold">
                       {selectedService
-                        ? `${selectedService.categoryName || selectedService.platformName} — ${selectedService.name}`
+                        ? selectedService.name
                         : "Select a service"}
                     </span>
 
@@ -451,11 +451,12 @@ export default function SmmDashboard() {
                                 setQuantity(p.minOrder || 100);
                                 setPickerOpen(false);
                               }}
-                              className={`w-full flex flex-col gap-2 p-3 rounded-xl text-left transition cursor-pointer border ${isSelected
-                                ? "bg-orange-50 border-orange-200"
-                                : "hover:bg-neutral-50 border-transparent hover:border-neutral-200"
+                              className={`w-full flex flex-col gap-2 p-3.5 rounded-xl text-left transition cursor-pointer border ${isSelected
+                                  ? "bg-orange-50 border-orange-200"
+                                  : "hover:bg-neutral-50 border-transparent hover:border-neutral-200"
                                 }`}
                             >
+                              {/* Top Row: Badge, Name, Price */}
                               <div className="flex items-start justify-between w-full">
                                 <div className="flex items-center gap-3">
                                   {icon ? (
@@ -482,7 +483,7 @@ export default function SmmDashboard() {
                                 </div>
                                 <div className="text-right shrink-0 ml-2">
                                   <p className="text-sm font-extrabold text-emerald-600">
-                                    {p.price / 100} {p.currency}
+                                    {(p.price / 100).toLocaleString()} {p.currency}
                                   </p>
                                   <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
                                     {p.pricingType === "flat" ? "flat" : "per 1k"}
@@ -490,26 +491,31 @@ export default function SmmDashboard() {
                                 </div>
                               </div>
 
-                              {/* Rich Tags */}
+                              {/* Bottom Row: Rich Tags (Refill, Speed, Quality, Drop Rate) */}
                               <div className="flex flex-wrap gap-1.5 mt-1">
                                 {p.refill && (
-                                  <span className="px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-semibold">
+                                  <span className="px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-[10px] font-semibold">
                                     ♻️ {p.refill}
                                   </span>
                                 )}
                                 {p.dropRate && (
-                                  <span className="px-2 py-0.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
+                                  <span className="px-2.5 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
                                     Drop: {p.dropRate}
                                   </span>
                                 )}
                                 {p.speed && (
-                                  <span className="px-2 py-0.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
-                                    ⚡ {p.speed}
+                                  <span className="px-2.5 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
+                                    ⚡ Speed: {p.speed}
                                   </span>
                                 )}
                                 {p.quality && (
-                                  <span className="px-2 py-0.5 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
+                                  <span className="px-2.5 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
                                     {p.quality}
+                                  </span>
+                                )}
+                                {p.startTime && (
+                                  <span className="px-2.5 py-1 bg-neutral-100 text-neutral-700 border border-neutral-200 rounded-full text-[10px] font-semibold">
+                                    ⏳ Start: {p.startTime}
                                   </span>
                                 )}
                               </div>
@@ -591,12 +597,12 @@ export default function SmmDashboard() {
                         onChange={(e) => {
                           // 1. Remove all non-numeric characters
                           let val = e.target.value.replace(/[^0-9]/g, "");
-                          
+
                           // 2. Ensure it doesn't exceed 15 digits (just in case maxLength fails)
                           if (val.length > 15) val = val.slice(0, 15);
-                          
+
                           const numVal = val ? Number(val) : 0;
-                          
+
                           // 3. Enforce the product's max order limit dynamically
                           if (selectedService?.maxOrder && numVal > selectedService.maxOrder) {
                             setQuantity(selectedService.maxOrder);
@@ -617,7 +623,7 @@ export default function SmmDashboard() {
                         placeholder={String(selectedService?.minOrder || 100)}
                         className="w-full p-4 bg-white border border-neutral-200 rounded-2xl font-bold text-sm focus:outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-100 transition"
                       />
-                      
+
                       <div className="flex justify-between items-center mt-1.5 px-1">
                         <p className="text-[10px] text-neutral-400 font-medium">
                           Min: {selectedService?.minOrder || 100} — Max: {selectedService?.maxOrder ? selectedService.maxOrder.toLocaleString() : "1,000,000"}
@@ -630,12 +636,12 @@ export default function SmmDashboard() {
                             key={num}
                             type="button"
                             onClick={() => {
-                               // Enforce max limit when clicking preset buttons too
-                               if (selectedService?.maxOrder && num > selectedService.maxOrder) {
-                                  setQuantity(selectedService.maxOrder);
-                               } else {
-                                  setQuantity(num);
-                               }
+                              // Enforce max limit when clicking preset buttons too
+                              if (selectedService?.maxOrder && num > selectedService.maxOrder) {
+                                setQuantity(selectedService.maxOrder);
+                              } else {
+                                setQuantity(num);
+                              }
                             }}
                             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer border ${quantity === num
                               ? "bg-purple-600 border-purple-600 text-white shadow-sm"
